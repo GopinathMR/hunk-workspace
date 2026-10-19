@@ -16,6 +16,20 @@
     "@types/bun": "latest",
     "@types/react": "^19.0.0",
     "hunkdiff": "0.24.0-beta.1",
+    "react": "^19.2.4",
     "typescript": "^5.6.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GopinathMR/hunk-workspace.git"
+  },
+  "keywords": [
+    "hunk-extension",
+    "hunk",
+    "diff",
+    "git",
+    "workspace",
+    "multi-repo"
+  ],
+  "license": "Apache-2.0"
 }
