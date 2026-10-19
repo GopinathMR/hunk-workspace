@@ -92,24 +92,13 @@ paths = ["/Users/<you>/github/hunk-workspace"]
 hunk diff --extension ~/github/hunk-workspace
 ```
 
-## Configure: required if your config pins `vcs`
+## If your config pins `vcs`
 
-A `vcs = "git"` line in `~/.config/hunk/config.toml` forces the Git backend
-everywhere. Hunk honors it, so this extension never activates, and only the root
-repo's changes show. When this happens in a workspace root, the extension shows a
-`hunk-workspace inactive` warning at startup. Fix it one of two ways:
-
-1. **Remove the `vcs = "git"` line.** Detection then picks Git in normal repos and
-   `ws` in workspace roots.
-2. **Keep the pin and override it per workspace.** Create
-   `<workspace>/.hunk/config.toml` with:
-
-   ```toml
-   vcs = "ws"
-   ```
-
-   If the workspace root is itself a git repo, either commit that file
-   or keep it local with `echo /.hunk/ >> "$(git rev-parse --git-path info/exclude)"`.
+A `vcs = "git"` line in `~/.config/hunk/config.toml` forces the Git backend for
+`hunk diff`, so plain `hunk diff` in a workspace root shows only the root repo and
+a `hunk-workspace inactive` warning. No config change is needed: run **`hunk ws`**
+instead. It takes the same options as `hunk diff` and selects this backend
+explicitly, which outranks the config pin.
 
 ## Use
 
@@ -117,7 +106,12 @@ repo's changes show. When this happens in a workspace root, the extension shows 
 cd ~/github/my-workspace
 hunk diff                       # every repo's working-tree changes
 hunk diff --staged              # every repo's staged changes
-hunk diff my-app/               # one repo only
+hunk diff -- my-app/            # one repo only
+
+# Same, whatever your config's `vcs` says:
+hunk ws
+hunk ws --staged
+hunk ws -- my-app/
 ```
 
 The review title reads `Working tree changes · N repos` when the extension is

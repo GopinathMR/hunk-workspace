@@ -68,11 +68,21 @@ export default function hunkWorkspace(hunk: HunkExtensionAPI) {
     },
   });
 
+  // `hunk ws [diff flags]`: the CLI `--vcs` flag outranks any `vcs = "git"` config pin.
+  hunk.registerCliCommand(
+    {
+      name: "ws",
+      summary: "Review every changed repo in this workspace (ignores a `vcs` config pin)",
+      usage: "[diff options] [-- <repo>/<path>...]",
+    },
+    (args) => ({ kind: "delegate", argv: ["diff", "--vcs", "ws", ...args] }),
+  );
+
   // A `vcs = "git"` pin in Hunk config silently bypasses this backend; say so instead.
   hunk.on("startup", ({ cwd }, ctx) => {
     if (!wasWorkspaceLoaded() && detectWorkspace(cwd)) {
       ctx.notify(
-        'hunk-workspace inactive: Hunk config pins another VCS. Add `vcs = "ws"` to .hunk/config.toml here, or remove `vcs = "git"` from ~/.config/hunk/config.toml.',
+        "hunk-workspace inactive: Hunk config pins another VCS. Run `hunk ws` here to review every repo.",
         "warning",
       );
     }
