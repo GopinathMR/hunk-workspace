@@ -61,16 +61,16 @@ Pick one of the three options below.
 ### Option A: managed install (recommended)
 
 ```bash
-hunk extension install ~/github/hunk-workspace
+hunk extension install GopinathMR/hunk-workspace
 ```
 
-Hunk asks for confirmation, then copies the folder into
+Hunk asks for confirmation, then fetches the repo into
 `~/.config/hunk/extensions/installed/hunk-workspace` and loads it in every session.
 Manage it with:
 
 ```bash
 hunk extension list
-hunk extension update hunk-workspace   # pick up changes from ~/github/hunk-workspace
+hunk extension update hunk-workspace   # pull the latest version
 hunk extension remove hunk-workspace
 ```
 
