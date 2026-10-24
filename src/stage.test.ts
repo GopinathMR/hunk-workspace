@@ -3,7 +3,23 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { listStaged, parseNumstat, resolveOwner, stageFile, unstageFile } from "./stage";
+import { listStaged, parseNumstat, resolveOwner, stageFile, stageFolder, unstageFile, unstageFolder } from "./stage";
+
+const git = (dir: string, ...args: string[]) =>
+  execFileSync("git", ["-C", dir, ...args], { stdio: "pipe", encoding: "utf8" });
+const write = (path: string, text: string) => {
+  mkdirSync(join(path, ".."), { recursive: true });
+  writeFileSync(path, text);
+};
+const initRepo = (dir: string, files: Record<string, string>) => {
+  mkdirSync(dir, { recursive: true });
+  git(dir, "init", "-q", "-b", "main");
+  git(dir, "config", "user.email", "t@example.com");
+  git(dir, "config", "user.name", "Test");
+  for (const [path, text] of Object.entries(files)) write(join(dir, path), text);
+  git(dir, "add", "-A");
+  git(dir, "commit", "-qm", "init");
+};
 
 test("parseNumstat reads plain, binary and rename entries", () => {
   expect(parseNumstat("3\t1\ta.ts\0-\t-\timg.png\0" + "2\t0\t\0old.ts\0new.ts\0")).toEqual([
@@ -17,21 +33,6 @@ test("parseNumstat reads plain, binary and rename entries", () => {
 describe("stage/unstage in the owning repo", () => {
   let root = "";
   let bare = "";
-  const git = (dir: string, ...args: string[]) =>
-    execFileSync("git", ["-C", dir, ...args], { stdio: "pipe", encoding: "utf8" });
-  const write = (path: string, text: string) => {
-    mkdirSync(join(path, ".."), { recursive: true });
-    writeFileSync(path, text);
-  };
-  const initRepo = (dir: string, files: Record<string, string>) => {
-    mkdirSync(dir, { recursive: true });
-    git(dir, "init", "-q", "-b", "main");
-    git(dir, "config", "user.email", "t@example.com");
-    git(dir, "config", "user.name", "Test");
-    for (const [path, text] of Object.entries(files)) write(join(dir, path), text);
-    git(dir, "add", "-A");
-    git(dir, "commit", "-qm", "init");
-  };
   const staged = (dir: string) => git(dir, "diff", "--cached", "--name-status").trim();
 
   beforeAll(() => {
@@ -114,5 +115,52 @@ describe("stage/unstage in the owning repo", () => {
       { repo: "api", path: "api/renamed.ts", previousPath: "api/old.ts", additions: 0, deletions: 0 },
       { repo: "api/vendor/lib", path: "api/vendor/lib/l.ts", previousPath: undefined, additions: 1, deletions: 1 },
     ]);
+  });
+});
+
+describe("folder stage/unstage", () => {
+  let root = "";
+  const staged = (dir: string) => git(dir, "diff", "--cached", "--name-only").trim().split("\n").filter(Boolean);
+
+  beforeAll(() => {
+    root = mkdtempSync(join(tmpdir(), "hunk-folder-"));
+    // The root repo does not ignore its children: a careless `git add -A` would add them as gitlinks.
+    initRepo(root, { "README.md": "r\n" });
+    initRepo(join(root, "api"), { "src/a.ts": "a\n", "b.ts": "b\n" });
+    initRepo(join(root, "web"), { "w.ts": "w\n" });
+    write(join(root, "README.md"), "r2\n");
+    write(join(root, "api/src/a.ts"), "a2\n");
+    write(join(root, "api/b.ts"), "b2\n");
+    write(join(root, "web/w.ts"), "w2\n");
+  });
+
+  afterAll(() => rmSync(root, { recursive: true, force: true }));
+
+  test("a sub-folder stages only its own files", async () => {
+    expect(await stageFolder(root, "api/src")).toEqual([]);
+    expect(staged(join(root, "api"))).toEqual(["src/a.ts"]);
+    expect(await unstageFolder(root, "api/src")).toEqual([]);
+    expect(staged(join(root, "api"))).toEqual([]);
+  });
+
+  test("the root folder stages each repo without adding child gitlinks", async () => {
+    expect(await stageFolder(root, "")).toEqual([]);
+    expect(staged(root)).toEqual(["README.md"]);
+    expect(staged(join(root, "api"))).toEqual(["b.ts", "src/a.ts"]);
+    expect(staged(join(root, "web"))).toEqual(["w.ts"]);
+
+    expect(await unstageFolder(root, "")).toEqual([]);
+    expect([...staged(root), ...staged(join(root, "api")), ...staged(join(root, "web"))]).toEqual([]);
+  });
+
+  test("a failing repo is reported while the others still stage", async () => {
+    const lock = join(root, "web/.git/index.lock");
+    writeFileSync(lock, "");
+    try {
+      expect(await stageFolder(root, "")).toEqual(["web"]);
+      expect(staged(join(root, "api"))).toEqual(["b.ts", "src/a.ts"]);
+    } finally {
+      unlinkSync(lock);
+    }
   });
 });

@@ -36,14 +36,31 @@ in a single stream, and a **Repos** sidebar lists the repos that have changes.
 - **Repos pane** (left, open by default). Each row shows the repo name, branch, file
   count and +/- lines. Click a row to jump to that repo's first file. The row that
   holds the selected file is highlighted.
+- **Staging.** `x` stages the selected file in the git repo that owns it: the nearest
+  enclosing repo, so nested repos work too. Under `hunk diff --staged`, `x` unstages
+  it instead. A rename stages both of its paths, so git still reports it as a rename.
+- **Staged pane** (right, closed by default, `S`). It lists every staged file, grouped
+  by repo. Click a row or use `ctrl+u`/`ctrl+d` to put the pane cursor on it, then `x`
+  unstages that file. Moving the selection in the review hands `x` back to staging.
+- **Extensions menu.** It has entries for Stage file, Unstage file, Stage folder and
+  Unstage folder. The folder entries act on the folder that holds the selected file,
+  route each file to its own repo, and ask for confirmation first.
 - **Commands.** Remap them under `[keybindings]` using these ids:
 
-  | Key | Command id                      | Action                                   |
-  | --- | ------------------------------- | ---------------------------------------- |
-  | `W` | `hunk-workspace.toggle-repos`   | Toggle the Repos pane                    |
-  | `)` | `hunk-workspace.next-repo`      | Jump to the next changed repo            |
-  | `(` | `hunk-workspace.prev-repo`      | Jump to the previous changed repo        |
-  | `O` | `hunk-workspace.only-repo`      | Show only the selected file's repo / all |
+  | Key      | Command id                      | Action                                   |
+  | -------- | ------------------------------- | ---------------------------------------- |
+  | `W`      | `hunk-workspace.toggle-repos`   | Toggle the Repos pane                    |
+  | `)`      | `hunk-workspace.next-repo`      | Jump to the next changed repo            |
+  | `(`      | `hunk-workspace.prev-repo`      | Jump to the previous changed repo        |
+  | `O`      | `hunk-workspace.only-repo`      | Show only the selected file's repo / all |
+  | `x`      | `hunk-workspace.toggle-stage`   | Stage/unstage the selected file or row   |
+  | `S`      | `hunk-workspace.toggle-staged`  | Toggle the Staged pane                   |
+  | `ctrl+u` | `hunk-workspace.staged-up`      | Staged pane: previous file               |
+  | `ctrl+d` | `hunk-workspace.staged-down`    | Staged pane: next file                   |
+  |          | `hunk-workspace.stage-file`     | Stage the selected file                  |
+  |          | `hunk-workspace.unstage-file`   | Unstage the selected file                |
+  |          | `hunk-workspace.stage-folder`   | Stage everything under the file's folder |
+  |          | `hunk-workspace.unstage-folder` | Unstage everything under that folder     |
 
   While the review is scoped with `O`, clicking another repo in the pane clears the
   scope and jumps there.

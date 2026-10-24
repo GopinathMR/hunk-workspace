@@ -4,14 +4,16 @@
  * Registers the `ws` VCS backend (wins over Git only when the launch directory has
  * two or more child git repos), the left `repos` pane, and repo navigation commands.
  */
+import { dirname } from "node:path";
 import type { ExtensionCommandContext, HunkExtensionAPI } from "hunkdiff/extension";
 import { activeScope, groupFilesByRepo, repoScope, RepoPane } from "./RepoPane";
-import { listStaged, stageFile, unstageFile } from "./stage";
+import { listStaged, stageFile, stageFolder, unstageFile, unstageFolder } from "./stage";
 import { moveCursor, StagedPane, stagedStore } from "./StagedPane";
 import {
   detectWorkspace,
   getRepoSummaries,
   loadWorkspace,
+  ROOT_REPO_LABEL,
   wasStagedReview,
   wasWorkspaceLoaded,
   workspaceSignature,
@@ -102,6 +104,43 @@ async function stageSelected(ctx: ExtensionCommandContext, unstage: boolean) {
   const files = ctx.selection.files;
   const index = files.findIndex((f) => f.id === file.id);
   pendingSelectPath = (files[index + 1] ?? files[index - 1])?.path ?? null;
+  await ctx.commands.execute("hunk.app.refresh");
+}
+
+/** Stage or unstage everything under the selected file's folder, after a confirm. */
+async function stageSelectedFolder(ctx: ExtensionCommandContext, unstage: boolean) {
+  if (!wasWorkspaceLoaded()) return;
+  const file = ctx.selection.file;
+  if (!file) {
+    ctx.notify(`Select a file to ${unstage ? "unstage" : "stage"} its folder`, "warning");
+    return;
+  }
+
+  const dir = dirname(file.path);
+  const folder = dir === "." ? "" : dir;
+  const under = (path: string) => folder === "" || path.startsWith(`${folder}/`);
+  // Unstaged files are what the review shows; staged ones are what the pane lists.
+  const count = unstage
+    ? stagedStore.get().rows.filter((row) => under(row.path)).length
+    : ctx.selection.files.filter((f) => under(f.path)).length;
+  const verb = unstage ? "unstage" : "stage";
+  if (count === 0) {
+    ctx.notify(`Nothing to ${verb}`, "warning");
+    return;
+  }
+
+  const label = folder || "the workspace root";
+  const confirmed = await ctx.dialogs.confirm({
+    title: `${unstage ? "Unstage" : "Stage"} ${count} file${count === 1 ? "" : "s"} under ${label}?`,
+    confirmLabel: verb,
+  });
+  if (!confirmed) return;
+
+  const failed = await (unstage ? unstageFolder : stageFolder)(ctx.cwd, folder);
+  if (failed.length > 0) {
+    const repos = failed.map((repo) => repo || ROOT_REPO_LABEL).join(", ");
+    ctx.notify(`git ${unstage ? "reset" : "add"} failed in: ${repos}`, "error");
+  }
   await ctx.commands.execute("hunk.app.refresh");
 }
 
@@ -198,6 +237,12 @@ export default function hunkWorkspace(hunk: HunkExtensionAPI) {
   hunk.registerCommand({ id: "stage-file", title: "Stage file" }, (ctx) => stageSelected(ctx, false));
   hunk.registerCommand({ id: "unstage-file", title: "Unstage file" }, (ctx) =>
     stageSelected(ctx, true),
+  );
+  hunk.registerCommand({ id: "stage-folder", title: "Stage folder" }, (ctx) =>
+    stageSelectedFolder(ctx, false),
+  );
+  hunk.registerCommand({ id: "unstage-folder", title: "Unstage folder" }, (ctx) =>
+    stageSelectedFolder(ctx, true),
   );
 
   // Main-view navigation hands `x` back to the review.

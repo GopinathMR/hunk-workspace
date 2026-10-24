@@ -27,12 +27,9 @@ export interface StageTarget {
  */
 const stagedRepos = new Set<string>();
 
-/** Find the repo that owns `wsPath`, or null when no repo inside the workspace does. */
-export async function resolveOwner(root: string, wsPath: string): Promise<Owner | null> {
-  const realRoot = realpathSync(root);
-  const target = join(realRoot, wsPath);
+/** The nearest repo enclosing `dir` (or its nearest existing ancestor), if inside `realRoot`. */
+async function repoOf(realRoot: string, dir: string): Promise<string | null> {
   // A deleted file's folder may be gone too; start from the nearest folder that exists.
-  let dir = dirname(target);
   while (!existsSync(dir) && within(realRoot, dir)) dir = dirname(dir);
   if (!within(realRoot, dir)) return null;
 
@@ -43,8 +40,15 @@ export async function resolveOwner(root: string, wsPath: string): Promise<Owner 
     return null;
   }
   // A repo above the workspace root is not ours to stage into.
-  if (!within(realRoot, repoDir)) return null;
-  return { repoDir, relPath: relative(repoDir, target) };
+  return within(realRoot, repoDir) ? repoDir : null;
+}
+
+/** Find the repo that owns `wsPath`, or null when no repo inside the workspace does. */
+export async function resolveOwner(root: string, wsPath: string): Promise<Owner | null> {
+  const realRoot = realpathSync(root);
+  const target = join(realRoot, wsPath);
+  const repoDir = await repoOf(realRoot, dirname(target));
+  return repoDir ? { repoDir, relPath: relative(repoDir, target) } : null;
 }
 
 /** Resolve the target's repo and its repo-relative paths (both sides for a rename). */
@@ -69,6 +73,51 @@ export async function stageFile(root: string, file: StageTarget): Promise<void> 
 export async function unstageFile(root: string, file: StageTarget): Promise<void> {
   const { repoDir, paths } = await locate(root, file);
   await git(repoDir, ["reset", "-q", "--", ...paths]);
+}
+
+/**
+ * Run one git command per repo covering `folder` (workspace-relative, `""` for the root).
+ *
+ * Covers the repo that owns the folder plus every known repo inside it. Each repo
+ * excludes the repos nested in it, so the root repo never adds a child as a gitlink.
+ * Returns the repos whose command failed (`""` = root repo); the rest still run.
+ */
+async function eachFolderRepo(root: string, folder: string, args: string[]): Promise<string[]> {
+  const realRoot = realpathSync(root);
+  const folderDir = join(realRoot, folder);
+  const owner = await repoOf(realRoot, folderDir);
+  const known = [
+    ...(existsSync(join(realRoot, ".git")) ? [realRoot] : []),
+    ...listChildRepos(realRoot).map((name) => join(realRoot, name)),
+    ...stagedRepos,
+  ];
+  const repos = [...new Set([...(owner ? [owner] : []), ...known.filter((dir) => within(folderDir, dir))])];
+
+  const failed: string[] = [];
+  await Promise.all(
+    repos.map(async (repo) => {
+      const excludes = repos
+        .filter((other) => other !== repo && within(repo, other))
+        .map((other) => `:(exclude)${relative(repo, other)}`);
+      const spec = within(folderDir, repo) ? "." : relative(repo, folderDir);
+      try {
+        await git(repo, [...args, "--", spec, ...excludes]);
+      } catch {
+        failed.push(relative(realRoot, repo));
+      }
+    }),
+  );
+  return failed.sort();
+}
+
+/** Stage every change under `folder`, each file in its own repo. Returns failed repos. */
+export async function stageFolder(root: string, folder: string): Promise<string[]> {
+  return eachFolderRepo(root, folder, ["add", "-A"]);
+}
+
+/** Unstage everything under `folder`, each file in its own repo. Returns failed repos. */
+export async function unstageFolder(root: string, folder: string): Promise<string[]> {
+  return eachFolderRepo(root, folder, ["reset", "-q"]);
 }
 
 /** One staged file as the Staged pane lists it; paths are workspace-relative. */
