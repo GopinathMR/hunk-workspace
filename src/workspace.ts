@@ -52,10 +52,16 @@ export interface RepoSummary {
 
 let latestSummaries: readonly RepoSummary[] = [];
 let workspaceLoaded = false;
+let stagedReview = false;
 
 /** Return whether the `ws` backend produced the current review (false when Git was used). */
 export function wasWorkspaceLoaded(): boolean {
   return workspaceLoaded;
+}
+
+/** Return whether the current review is `--staged` (so `x` unstages instead of stages). */
+export function wasStagedReview(): boolean {
+  return stagedReview;
 }
 
 /** Return the changed repos from the most recent load, in review order. */
@@ -148,7 +154,7 @@ export function countPatchFiles(patch: string): number {
 }
 
 /** Run git in one repo and return stdout, honoring cancellation. */
-async function git(dir: string, args: string[], signal?: AbortSignal): Promise<string> {
+export async function git(dir: string, args: string[], signal?: AbortSignal): Promise<string> {
   const { stdout } = await execFileAsync(
     "git",
     ["-C", dir, "--no-optional-locks", ...GIT_NORMALIZE_ARGS, ...args],
@@ -309,6 +315,7 @@ export async function loadWorkspace(
   const { root, childRepos, repos } = await collectWorkspace(input, context);
   latestSummaries = repos.map((repo) => repo.summary);
   workspaceLoaded = true;
+  stagedReview = input.staged;
 
   const patchText = repos
     .map((repo) => repo.patch)
@@ -351,7 +358,7 @@ function gitSync(dir: string, args: string[]) {
 }
 
 /** Return whether `child` is `parent` or inside it. */
-function within(parent: string, child: string) {
+export function within(parent: string, child: string) {
   return child === parent || child.startsWith(`${parent}/`);
 }
 

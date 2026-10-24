@@ -6,10 +6,12 @@
  */
 import type { ExtensionCommandContext, HunkExtensionAPI } from "hunkdiff/extension";
 import { activeScope, groupFilesByRepo, repoScope, RepoPane } from "./RepoPane";
+import { stageFile, unstageFile } from "./stage";
 import {
   detectWorkspace,
   getRepoSummaries,
   loadWorkspace,
+  wasStagedReview,
   wasWorkspaceLoaded,
   workspaceSignature,
   workspaceWatchPlan,
@@ -50,6 +52,38 @@ function toggleRepoScope(ctx: ExtensionCommandContext) {
     files: repoFiles.map((f) => ({ fileId: f.id, hunkIndexes: (f.hunks ?? []).map((h) => h.index) })),
   });
   if (ok && repo !== undefined) repoScope.current = { generation, repo };
+}
+
+/** File to select once the reload after a stage/unstage lands; ids renumber across reloads. */
+let pendingSelectPath: string | null = null;
+
+/** git's stderr when present, else the error message. */
+function gitError(error: unknown) {
+  const stderr = (error as { stderr?: string }).stderr?.trim();
+  return stderr || (error instanceof Error ? error.message : String(error));
+}
+
+/** Stage or unstage the selected file, then reload and land on its neighbor. */
+async function stageSelected(ctx: ExtensionCommandContext, unstage: boolean) {
+  if (!wasWorkspaceLoaded()) return;
+  const file = ctx.selection.file;
+  if (!file) {
+    ctx.notify(`Select a file to ${unstage ? "unstage" : "stage"}`, "warning");
+    return;
+  }
+
+  try {
+    await (unstage ? unstageFile : stageFile)(ctx.cwd, file);
+  } catch (error) {
+    ctx.notify(gitError(error), "error");
+    return;
+  }
+
+  // The file leaves this view, so land on the next one (or the previous if it was last).
+  const files = ctx.selection.files;
+  const index = files.findIndex((f) => f.id === file.id);
+  pendingSelectPath = (files[index + 1] ?? files[index - 1])?.path ?? null;
+  await ctx.commands.execute("hunk.app.refresh");
 }
 
 export default function hunkWorkspace(hunk: HunkExtensionAPI) {
@@ -112,4 +146,20 @@ export default function hunkWorkspace(hunk: HunkExtensionAPI) {
     { id: "only-repo", title: "Show only this repo / show all repos", key: "O" },
     toggleRepoScope,
   );
+
+  // `x` stages in the working-tree review and unstages in the `--staged` review.
+  hunk.registerCommand({ id: "toggle-stage", title: "Stage/unstage selected file", key: "x" }, (ctx) =>
+    stageSelected(ctx, wasStagedReview()),
+  );
+  hunk.registerCommand({ id: "stage-file", title: "Stage file" }, (ctx) => stageSelected(ctx, false));
+  hunk.registerCommand({ id: "unstage-file", title: "Unstage file" }, (ctx) =>
+    stageSelected(ctx, true),
+  );
+
+  hunk.on("session_reload", ({ changeset }, ctx) => {
+    if (pendingSelectPath === null) return;
+    const target = changeset.files.find((f) => f.path === pendingSelectPath);
+    pendingSelectPath = null;
+    if (target) ctx.navigation.selectFile(target.id);
+  });
 }
