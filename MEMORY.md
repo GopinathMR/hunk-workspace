@@ -16,4 +16,6 @@ Operational learnings for this repo. One fact per line.
 - An `index.lock` file in `.git/` is an easy way to make one repo's git write fail in tests.
 
 ## Dev environment
-- Homebrew Hunk is 0.22 but the extension needs 0.24+, so local live runs aren't possible. Rely on `bun test` against real temp repos plus `tsc`.
+- Live check: `tmux new-session -d -x 200 -y 40 "hunk diff --extension <repo>"`, then `send-keys`/`capture-pane`. Under ~200 cols Hunk hides the sidebars. Binding conflicts show as an `ext ... is taken by` toast at the bottom.
+- Screenshots: `tmux capture-pane -e -p | freeze --language ansi -o x.png`, then `sips -Z 1800`.
+- `ctrl+u`/`ctrl+d` are Hunk's half-page aliases, so they can't be bound by extensions.

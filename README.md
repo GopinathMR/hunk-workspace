@@ -40,11 +40,19 @@ in a single stream, and a **Repos** sidebar lists the repos that have changes.
   enclosing repo, so nested repos work too. Under `hunk diff --staged`, `x` unstages
   it instead. A rename stages both of its paths, so git still reports it as a rename.
 - **Staged pane** (right, closed by default, `S`). It lists every staged file, grouped
-  by repo. Click a row or use `ctrl+u`/`ctrl+d` to put the pane cursor on it, then `x`
+  by repo. Click a row or use `K`/`J` to put the pane cursor on it, then `x`
   unstages that file. Moving the selection in the review hands `x` back to staging.
+
+  ![Staged pane on the right, cursor on a staged file](docs/images/staged-pane.png)
+
 - **Extensions menu.** It has entries for Stage file, Unstage file, Stage folder and
   Unstage folder. The folder entries act on the folder that holds the selected file,
   route each file to its own repo, and ask for confirmation first.
+
+  ![Extensions menu with the staging commands](docs/images/extensions-menu.png)
+
+  ![Confirm dialog before staging a folder](docs/images/stage-folder-confirm.png)
+
 - **Commands.** Remap them under `[keybindings]` using these ids:
 
   | Key      | Command id                      | Action                                   |
@@ -55,8 +63,8 @@ in a single stream, and a **Repos** sidebar lists the repos that have changes.
   | `O`      | `hunk-workspace.only-repo`      | Show only the selected file's repo / all |
   | `x`      | `hunk-workspace.toggle-stage`   | Stage/unstage the selected file or row   |
   | `S`      | `hunk-workspace.toggle-staged`  | Toggle the Staged pane                   |
-  | `ctrl+u` | `hunk-workspace.staged-up`      | Staged pane: previous file               |
-  | `ctrl+d` | `hunk-workspace.staged-down`    | Staged pane: next file                   |
+  | `K`      | `hunk-workspace.staged-up`      | Staged pane: previous file               |
+  | `J`      | `hunk-workspace.staged-down`    | Staged pane: next file                   |
   |          | `hunk-workspace.stage-file`     | Stage the selected file                  |
   |          | `hunk-workspace.unstage-file`   | Unstage the selected file                |
   |          | `hunk-workspace.stage-folder`   | Stage everything under the file's folder |
