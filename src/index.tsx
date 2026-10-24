@@ -220,10 +220,10 @@ export default function hunkWorkspace(hunk: HunkExtensionAPI) {
     ctx.panes.toggle("staged");
     void refreshStaged(ctx.cwd);
   });
-  hunk.registerCommand({ id: "staged-up", title: "Staged pane: previous file", key: "ctrl+u" }, () =>
+  hunk.registerCommand({ id: "staged-up", title: "Staged pane: previous file", key: "K" }, () =>
     moveCursor(-1),
   );
-  hunk.registerCommand({ id: "staged-down", title: "Staged pane: next file", key: "ctrl+d" }, () =>
+  hunk.registerCommand({ id: "staged-down", title: "Staged pane: next file", key: "J" }, () =>
     moveCursor(1),
   );
 
