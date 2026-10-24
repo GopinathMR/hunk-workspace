@@ -3,7 +3,16 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { resolveOwner, stageFile, unstageFile } from "./stage";
+import { listStaged, parseNumstat, resolveOwner, stageFile, unstageFile } from "./stage";
+
+test("parseNumstat reads plain, binary and rename entries", () => {
+  expect(parseNumstat("3\t1\ta.ts\0-\t-\timg.png\0" + "2\t0\t\0old.ts\0new.ts\0")).toEqual([
+    { path: "a.ts", additions: 3, deletions: 1 },
+    { path: "img.png", additions: 0, deletions: 0 },
+    { path: "new.ts", previousPath: "old.ts", additions: 2, deletions: 0 },
+  ]);
+  expect(parseNumstat("")).toEqual([]);
+});
 
 describe("stage/unstage in the owning repo", () => {
   let root = "";
@@ -96,5 +105,14 @@ describe("stage/unstage in the owning repo", () => {
     expect(staged(api)).toBe("");
     await stageFile(root, rename);
     expect(git(api, "diff", "--cached", "--name-status", "-M").trim()).toBe("R100\told.ts\trenamed.ts");
+  });
+
+  test("listStaged lists every repo's staged files with workspace paths", async () => {
+    // Left staged by the tests above: root README, the api rename, the nested repo file.
+    expect(await listStaged(root)).toEqual([
+      { repo: "", path: "README.md", previousPath: undefined, additions: 1, deletions: 1 },
+      { repo: "api", path: "api/renamed.ts", previousPath: "api/old.ts", additions: 0, deletions: 0 },
+      { repo: "api/vendor/lib", path: "api/vendor/lib/l.ts", previousPath: undefined, additions: 1, deletions: 1 },
+    ]);
   });
 });

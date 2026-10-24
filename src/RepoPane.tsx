@@ -35,7 +35,7 @@ export function groupFilesByRepo(
 }
 
 /** Fit text to the pane width with an ellipsis. */
-function fit(text: string, width: number) {
+export function fit(text: string, width: number) {
   return text.length <= width ? text.padEnd(width) : `${text.slice(0, Math.max(0, width - 1))}…`;
 }
 
