@@ -1,6 +1,6 @@
 {
   "name": "hunk-workspace",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Review every changed sub-repo of a multi-repo workspace in one Hunk session, with a Repos sidebar",
   "type": "module",
   "private": true,

@@ -89,7 +89,7 @@ Pick one of the three options below.
 hunk extension install GopinathMR/hunk-workspace
 ```
 
-Pin a release with `hunk extension install GopinathMR/hunk-workspace@v0.1.0`.
+Pin a release with `hunk extension install GopinathMR/hunk-workspace@v0.2.0`.
 
 Hunk asks for confirmation, then fetches the repo into
 `~/.config/hunk/extensions/installed/hunk-workspace` and loads it in every session.
